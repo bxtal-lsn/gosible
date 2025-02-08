@@ -1,0 +1,24 @@
+.gitignoe # Go build artifacts
+/bin/
+*.exe
+*.out
+*.app
+*.so
+*.a
+*.o
+
+# Go modules and cache
+/go/
+*.sum
+vendor/
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# Logs & Debugging files
+*.log
+*.test
