@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/bxtal-lsn/gosible/internal/executor"
@@ -13,7 +15,7 @@ import (
 
 var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "Run Ansible playbooks with optional dry-run mode",
+	Short: "Run Ansible playbooks with optional auto-discovery and dry-run mode",
 	Run: func(cmd *cobra.Command, args []string) {
 		reader := bufio.NewReader(os.Stdin)
 		var inventoryFile string
@@ -22,23 +24,36 @@ var runCmd = &cobra.Command{
 		var extraVars []string
 		dryRun := false
 
-		// ✅ Ask if the user has an inventory file or wants to create one
+		// ✅ Ask if the user has an existing inventory file
 		fmt.Println("\n📂 Do you already have an inventory file? (yes/no)")
 		fmt.Print("> ")
 		response, _ := reader.ReadString('\n')
 		response = strings.TrimSpace(strings.ToLower(response))
 
 		if response == "yes" {
+			// ✅ Use existing inventory file
 			fmt.Println("\n📍 Enter the path to your inventory file:")
 			fmt.Print("> ")
 			inventoryFile, _ = reader.ReadString('\n')
 			inventoryFile = strings.TrimSpace(inventoryFile)
 		} else {
-			fmt.Println("\n🖥️ Enter server IPs or DNS names (space-separated):")
+			// ✅ No inventory file → Ask if user wants to auto-discover instances
+			fmt.Println("\n🔍 Do you want to auto-discover running Multipass/Docker instances? (yes/no)")
 			fmt.Print("> ")
-			input, _ := reader.ReadString('\n')
-			instances = strings.Fields(strings.TrimSpace(input))
+			response, _ := reader.ReadString('\n')
+			response = strings.TrimSpace(strings.ToLower(response))
 
+			if response == "yes" {
+				instances = discoverInstances()
+			} else {
+				// ✅ Manually enter instances
+				fmt.Println("\n🖥️ Enter server IPs or DNS names (space-separated):")
+				fmt.Print("> ")
+				input, _ := reader.ReadString('\n')
+				instances = strings.Fields(strings.TrimSpace(input))
+			}
+
+			// ✅ Proceed with inventory creation
 			fmt.Println("\n📂 Where should the inventory file be saved? (Press Enter for current directory):")
 			fmt.Print("> ")
 			inventoryDir, _ := reader.ReadString('\n')
@@ -47,6 +62,7 @@ var runCmd = &cobra.Command{
 				inventoryDir = "."
 			}
 
+			// ✅ Configure each instance
 			hostConfigs := []inventory.HostConfig{}
 			for _, instance := range instances {
 				fmt.Printf("\n🖥️ Configuring %s\n", instance)
@@ -89,6 +105,7 @@ var runCmd = &cobra.Command{
 				})
 			}
 
+			// ✅ Create inventory file
 			inventoryFile = inventory.CreateInventoryFile(inventoryDir, hostConfigs)
 			fmt.Printf("\n✅ Inventory file created at: %s\n", inventoryFile)
 		}
@@ -98,18 +115,6 @@ var runCmd = &cobra.Command{
 		fmt.Print("> ")
 		input, _ := reader.ReadString('\n')
 		playbooks = strings.Fields(strings.TrimSpace(input))
-
-		// ✅ Ask if user wants to pass extra variables
-		fmt.Println("\n⚙️ Do you want to pass extra variables to Ansible? (yes/no)")
-		fmt.Print("> ")
-		response, _ = reader.ReadString('\n')
-		response = strings.TrimSpace(strings.ToLower(response))
-		if response == "yes" {
-			fmt.Println("\n🔧 Enter variables in key=value format (space-separated):")
-			fmt.Print("> ")
-			input, _ := reader.ReadString('\n')
-			extraVars = strings.Fields(strings.TrimSpace(input))
-		}
 
 		// ✅ Ask if user wants to enable dry-run mode
 		fmt.Println("\n🔍 Would you like to run this in dry-run mode? (yes/no)")
@@ -127,5 +132,69 @@ var runCmd = &cobra.Command{
 			executor.ExecuteAnsiblePlaybook(inventoryFile, playbook, extraVars, dryRun)
 		}
 	},
+}
+
+// ✅ Auto-discover Multipass/Docker instances
+func discoverInstances() []string {
+	var instances []string
+
+	// ✅ Detect Multipass instances
+	fmt.Println("\n🔍 Checking for running Multipass instances...")
+	out, err := exec.Command("multipass", "list", "--format", "csv").Output()
+	if err == nil {
+		lines := strings.Split(string(out), "\n")
+		for _, line := range lines[1:] { // Skip header row
+			fields := strings.Split(line, ",")
+			if len(fields) > 2 && strings.TrimSpace(fields[1]) == "Running" {
+				instances = append(instances, strings.TrimSpace(fields[2])) // Extract IP
+			}
+		}
+	}
+
+	// ✅ Detect Docker containers
+	fmt.Println("\n🐳 Checking for running Docker containers...")
+	out, err = exec.Command("docker", "ps", "--format", "{{.Names}}").Output()
+	if err == nil {
+		lines := strings.Split(string(out), "\n")
+		for _, line := range lines {
+			if len(line) > 0 {
+				instances = append(instances, strings.TrimSpace(line)) // Use container name
+			}
+		}
+	}
+
+	// ✅ Prompt user to select instances
+	if len(instances) > 0 {
+		fmt.Println("\n🔍 Found the following instances:")
+		for i, instance := range instances {
+			fmt.Printf("[%d] %s\n", i+1, instance)
+		}
+		fmt.Println("\nSelect instances to add (space-separated numbers, or type 'all' for all):")
+		fmt.Print("> ")
+
+		reader := bufio.NewReader(os.Stdin)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+
+		if input == "all" {
+			return instances
+		}
+
+		selectedInstances := []string{}
+		indices := strings.Fields(input)
+		for _, index := range indices {
+			if i, err := strconv.Atoi(index); err == nil && i > 0 && i <= len(instances) {
+				selectedInstances = append(selectedInstances, instances[i-1])
+			}
+		}
+		return selectedInstances
+	}
+
+	fmt.Println("⚠️ No running Multipass or Docker instances found.")
+	return []string{}
+}
+
+func init() {
+	rootCmd.AddCommand(runCmd)
 }
 
