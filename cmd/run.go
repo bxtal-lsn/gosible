@@ -106,7 +106,12 @@ var runCmd = &cobra.Command{
 			}
 
 			// ✅ Create inventory file
-			inventoryFile = inventory.CreateInventoryFile(inventoryDir, hostConfigs)
+			inventoryFile, err := inventory.CreateInventoryFile(inventoryDir, hostConfigs)
+			if err != nil {
+				fmt.Printf("❌ Error creating inventory file: %v\n", err)
+				os.Exit(1)
+			}
+
 			fmt.Printf("\n✅ Inventory file created at: %s\n", inventoryFile)
 		}
 
@@ -197,4 +202,3 @@ func discoverInstances() []string {
 func init() {
 	rootCmd.AddCommand(runCmd)
 }
-

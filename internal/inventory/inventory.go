@@ -18,11 +18,11 @@ type HostConfig struct {
 }
 
 // ✅ Function to create an inventory file with per-host settings
-func CreateInventoryFile(directory string, hosts []HostConfig) string {
+// ✅ Function to create an inventory file with per-host settings
+func CreateInventoryFile(directory string, hosts []HostConfig) (string, error) {
 	// Ensure directory exists
 	if err := os.MkdirAll(directory, 0o755); err != nil {
-		fmt.Println("Error creating directory:", err)
-		os.Exit(1)
+		return "", fmt.Errorf("error creating directory: %w", err)
 	}
 
 	// ✅ Generate unique inventory filename
@@ -57,7 +57,7 @@ func CreateInventoryFile(directory string, hosts []HostConfig) string {
 		}
 	}
 
-	// ✅ Write grouped hosts under a **single `children:` section**
+	// ✅ Write grouped hosts under `children:`
 	if len(groups) > 0 {
 		inventoryContent.WriteString("\n  children:\n")
 		for groupName, groupHosts := range groups {
@@ -79,11 +79,10 @@ func CreateInventoryFile(directory string, hosts []HostConfig) string {
 	// Save inventory file
 	err := os.WriteFile(inventoryFile, []byte(inventoryContent.String()), 0o644)
 	if err != nil {
-		fmt.Println("Error writing inventory file:", err)
-		os.Exit(1)
+		return "", fmt.Errorf("error writing inventory file: %w", err)
 	}
 
-	return inventoryFile
+	return inventoryFile, nil
 }
 
 // ✅ Function to generate a unique filename if `inventory.yml` exists
