@@ -22,3 +22,6 @@ vendor/
 # Logs & Debugging files
 *.log
 *.test
+
+# Test playbooks
+/playbooks_test/
