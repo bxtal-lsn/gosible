@@ -112,14 +112,13 @@ func fileExists(filename string) bool {
 	return !os.IsNotExist(err)
 }
 
-// ✅ Auto-discover Multipass/Docker instances (NOW MOCKABLE!)
-// ✅ Discover running Multipass/Docker instances (WITH TESTABLE INPUT)
+// ✅ Auto-discover Multipass/Docker instances
 func DiscoverInstances(reader *bufio.Reader) []string {
 	var instances []string
 
 	// ✅ Detect Multipass instances
 	fmt.Println("\n🔍 Checking for running Multipass instances...")
-	out, err := execCommand("multipass", "list", "--format", "csv").Output()
+	out, err := exec.Command("multipass", "list", "--format", "csv").Output()
 	if err == nil {
 		lines := strings.Split(string(out), "\n")
 		for _, line := range lines[1:] { // Skip header row
@@ -132,7 +131,7 @@ func DiscoverInstances(reader *bufio.Reader) []string {
 
 	// ✅ Detect Docker containers
 	fmt.Println("\n🐳 Checking for running Docker containers...")
-	out, err = execCommand("docker", "ps", "--format", "{{.Names}}").Output()
+	out, err = exec.Command("docker", "ps", "--format", "{{.Names}}").Output()
 	if err == nil {
 		lines := strings.Split(string(out), "\n")
 		for _, line := range lines {
@@ -142,34 +141,32 @@ func DiscoverInstances(reader *bufio.Reader) []string {
 		}
 	}
 
-	// ✅ Return all instances if none are found
-	if len(instances) == 0 {
-		fmt.Println("⚠️ No running Multipass or Docker instances found.")
-		return []string{}
-	}
-
-	// ✅ Prompt user for instance selection (allow input override in tests)
-	fmt.Println("\n🔍 Found the following instances:")
-	for i, instance := range instances {
-		fmt.Printf("[%d] %s\n", i+1, instance)
-	}
-	fmt.Println("\nSelect instances to add (space-separated numbers, or type 'all' for all):")
-	fmt.Print("> ")
-
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
-
-	if input == "all" {
-		return instances
-	}
-
-	// ✅ Handle numbered selections
-	selectedInstances := []string{}
-	indices := strings.Fields(input)
-	for _, index := range indices {
-		if i, err := strconv.Atoi(index); err == nil && i > 0 && i <= len(instances) {
-			selectedInstances = append(selectedInstances, instances[i-1])
+	// ✅ Prompt user to select instances
+	if len(instances) > 0 {
+		fmt.Println("\n🔍 Found the following instances:")
+		for i, instance := range instances {
+			fmt.Printf("[%d] %s\n", i+1, instance)
 		}
+		fmt.Println("\nSelect instances to add (space-separated numbers, or type 'all' for all):")
+		fmt.Print("> ")
+
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+
+		if input == "all" {
+			return instances
+		}
+
+		selectedInstances := []string{}
+		indices := strings.Fields(input)
+		for _, index := range indices {
+			if i, err := strconv.Atoi(index); err == nil && i > 0 && i <= len(instances) {
+				selectedInstances = append(selectedInstances, instances[i-1])
+			}
+		}
+		return selectedInstances
 	}
-	return selectedInstances
+
+	fmt.Println("⚠️ No running Multipass or Docker instances found.")
+	return []string{}
 }

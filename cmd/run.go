@@ -41,6 +41,7 @@ func runPlaybook(cmd *cobra.Command, args []string) {
 }
 
 // ✅ Ask user for inventory file or create one
+// ✅ Ask user for inventory file or create one
 func askForInventory(reader *bufio.Reader, instances *[]string) string {
 	fmt.Println("\n📂 Do you already have an inventory file? (yes/no)")
 	fmt.Print("> ")
@@ -61,7 +62,7 @@ func askForInventory(reader *bufio.Reader, instances *[]string) string {
 	response = strings.TrimSpace(strings.ToLower(response))
 
 	if response == "yes" {
-		*instances = inventory.DiscoverInstances()
+		*instances = inventory.DiscoverInstances(reader) // ✅ Use `reader`
 	} else {
 		fmt.Println("\n🖥️ Enter server IPs or DNS names (space-separated):")
 		fmt.Print("> ")
@@ -70,7 +71,7 @@ func askForInventory(reader *bufio.Reader, instances *[]string) string {
 	}
 
 	// ✅ Proceed with inventory creation
-	return createInventoryFile(reader, *instances)
+	return createInventoryFile(reader, *instances) // ✅ Use `reader`
 }
 
 // ✅ Create a new inventory file
