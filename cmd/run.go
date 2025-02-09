@@ -13,12 +13,14 @@ import (
 
 var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "Run Ansible playbooks on selected instances",
+	Short: "Run Ansible playbooks with optional dry-run mode",
 	Run: func(cmd *cobra.Command, args []string) {
 		reader := bufio.NewReader(os.Stdin)
 		var inventoryFile string
 		var instances []string
 		var playbooks []string
+		var extraVars []string
+		dryRun := false
 
 		// ✅ Ask if the user has an inventory file or wants to create one
 		fmt.Println("\n📂 Do you already have an inventory file? (yes/no)")
@@ -37,7 +39,6 @@ var runCmd = &cobra.Command{
 			input, _ := reader.ReadString('\n')
 			instances = strings.Fields(strings.TrimSpace(input))
 
-			// ✅ Ask where to save the inventory
 			fmt.Println("\n📂 Where should the inventory file be saved? (Press Enter for current directory):")
 			fmt.Print("> ")
 			inventoryDir, _ := reader.ReadString('\n')
@@ -46,10 +47,7 @@ var runCmd = &cobra.Command{
 				inventoryDir = "."
 			}
 
-			// ✅ Define hostConfigs before the loop
 			hostConfigs := []inventory.HostConfig{}
-
-			// ✅ Ask per-host configuration
 			for _, instance := range instances {
 				fmt.Printf("\n🖥️ Configuring %s\n", instance)
 
@@ -91,9 +89,8 @@ var runCmd = &cobra.Command{
 				})
 			}
 
-			// ✅ Create inventory file with default `inventory.yml` but increment if necessary
 			inventoryFile = inventory.CreateInventoryFile(inventoryDir, hostConfigs)
-			fmt.Printf("\n✅ Inventory file created at: %s (Default: inventory.yml, increments if necessary)\n", inventoryFile)
+			fmt.Printf("\n✅ Inventory file created at: %s\n", inventoryFile)
 		}
 
 		// ✅ Ask for playbooks
@@ -102,10 +99,32 @@ var runCmd = &cobra.Command{
 		input, _ := reader.ReadString('\n')
 		playbooks = strings.Fields(strings.TrimSpace(input))
 
+		// ✅ Ask if user wants to pass extra variables
+		fmt.Println("\n⚙️ Do you want to pass extra variables to Ansible? (yes/no)")
+		fmt.Print("> ")
+		response, _ = reader.ReadString('\n')
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response == "yes" {
+			fmt.Println("\n🔧 Enter variables in key=value format (space-separated):")
+			fmt.Print("> ")
+			input, _ := reader.ReadString('\n')
+			extraVars = strings.Fields(strings.TrimSpace(input))
+		}
+
+		// ✅ Ask if user wants to enable dry-run mode
+		fmt.Println("\n🔍 Would you like to run this in dry-run mode? (yes/no)")
+		fmt.Print("> ")
+		response, _ = reader.ReadString('\n')
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response == "yes" {
+			dryRun = true
+			fmt.Println("✅ Dry-run mode enabled! Playbooks will simulate changes without applying them.")
+		}
+
 		// ✅ Execute playbooks
 		for _, playbook := range playbooks {
 			fmt.Printf("\n🚀 Running playbook: %s using inventory: %s\n", playbook, inventoryFile)
-			executor.ExecuteAnsiblePlaybook(inventoryFile, playbook, nil)
+			executor.ExecuteAnsiblePlaybook(inventoryFile, playbook, extraVars, dryRun)
 		}
 	},
 }
