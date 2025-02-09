@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+// ✅ Allow overriding exec.Command for testing
+var execCommand = exec.Command
+
 // ✅ Execute Ansible playbook, supporting dry-run mode
 func ExecuteAnsiblePlaybook(inventory string, playbook string, vars []string, dryRun bool) {
 	cmdArgs := []string{"-i", inventory, playbook}
@@ -21,7 +24,7 @@ func ExecuteAnsiblePlaybook(inventory string, playbook string, vars []string, dr
 		cmdArgs = append(cmdArgs, "--check")
 	}
 
-	cmd := exec.Command("ansible-playbook", cmdArgs...)
+	cmd := execCommand("ansible-playbook", cmdArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -32,4 +35,3 @@ func ExecuteAnsiblePlaybook(inventory string, playbook string, vars []string, dr
 		fmt.Println("❌ Error executing playbook:", err)
 	}
 }
-
